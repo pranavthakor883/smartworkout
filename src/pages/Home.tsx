@@ -377,14 +377,16 @@ const Home = () => {
                   if (feature.title === "Goal-Oriented") {
                     navigate("/goal-plan");
                   }
+                  if (feature.title === "Real-Time Analytics") {
+                    navigate("/analytics");
+                  }
                 }}
-                className={
-                  feature.title === "AI-Powered Plan" ||
-                    feature.title === "Health Tracker" ||
-                    feature.title === "Goal-Oriented"
-                    ? "cursor-pointer hover:scale-105 transition"
-                    : ""
-                }
+               className={feature.title === "AI-Powered Plan" ||
+              feature.title === "Health Tracker" ||
+              feature.title === "Goal-Oriented" ||
+              feature.title === "Real-Time Analytics"
+              ? "cursor-pointer hover:scale-105 transition"
+              : ""}
               >
                 <CardContent className="p-6">
                   <feature.icon className="w-6 h-6 text-primary mb-4" />
@@ -394,10 +396,6 @@ const Home = () => {
               </Card>
             </motion.div>
           ))}
-          {/* Goal Oriented Component
-          <motion.div variants={fadeUp} custom={3}>
-            <GoalOriented goal={goal} />
-          </motion.div> */}
         </div>
 
         {/* Smart Scheduling */}
@@ -417,6 +415,7 @@ const Home = () => {
 
                 <SmartScheduling
                   schedule={aiResult.schedule}
+                  showProgress={false} 
                 />
               </CardContent>
             </Card>

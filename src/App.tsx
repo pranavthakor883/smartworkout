@@ -12,6 +12,7 @@ import Login from "./pages/Login";
 import GoalPlan from "./pages/Goalplan";
 import Signup from "./pages/Signup";
 import NotFound from "./pages/NotFound";
+import Analytics from "./pages/Analytics";
 import Feedback from "./pages/Feedback"
 import HealthTracker from "./pages/HealthTracker";;
 import AIPlan from "./pages/Aiplan";
@@ -31,6 +32,7 @@ const App = () => (
           <Route path="/blog" element={<Blog />} />
            <Route path="/blog/:id" element={<BlogDetail/>} />
            <Route path="/ai-plan" element={<AIPlan />} />
+           <Route path="/analytics" element={<Analytics />} />
            <Route path="/health-tracker" element={<HealthTracker />} />
            <Route path="/goal-plan" element={<GoalPlan />} />
            <Route path="/report" element={<Report />} />

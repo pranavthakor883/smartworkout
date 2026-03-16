@@ -18,6 +18,7 @@ import random
 
 
 def generate_schedule(activity, goal="weight_loss", recommended_workout=None):
+    import random
 
     week_days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
@@ -28,10 +29,17 @@ def generate_schedule(activity, goal="weight_loss", recommended_workout=None):
         "moderately_active": 1.2,
         "very_active": 1.5
     }
-
     multiplier = activity_multiplier.get(activity, 1.0)
 
-    # Muscle gain split (Gym style)
+    # Rest days per goal
+    rest_days = {
+        "muscle_gain": ["Tuesday", "Thursday", "Sunday"],
+        "weight_loss": ["Sunday"],
+        "endurance": ["Sunday"],
+        "general_fitness": ["Sunday"]
+    }
+
+    # Muscle gain split
     muscle_split = {
         "Monday": [
             {"name": "Barbell Bench Press", "sets": 4, "reps": 8},
@@ -55,88 +63,90 @@ def generate_schedule(activity, goal="weight_loss", recommended_workout=None):
         ]
     }
 
-    # Weight loss HIIT exercises
-    weight_loss_pool = [
-        {"name": "Jumping Jacks", "sets": 3, "reps": 20},
-        {"name": "Burpees", "sets": 3, "reps": 12},
-        {"name": "Mountain Climbers", "sets": 3, "reps": 40},
-        {"name": "High Knees", "sets": 3, "reps": 30},
-        {"name": "Bodyweight Squats", "sets": 3, "reps": 15},
-        {"name": "Push-ups", "sets": 3, "reps": 12},
-    ]
+    # Weight loss split
+    weight_loss_split = {
+        "Monday": [
+            {"name": "Jumping Jacks", "sets": 3, "reps": 20},
+            {"name": "Burpees", "sets": 3, "reps": 12},
+            {"name": "Push-ups", "sets": 3, "reps": 12},
+        ],
+        "Tuesday": [
+            {"name": "Mountain Climbers", "sets": 3, "reps": 40},
+            {"name": "High Knees", "sets": 3, "reps": 30},
+            {"name": "Bodyweight Squats", "sets": 3, "reps": 15},
+        ],
+        "Wednesday": [
+            {"name": "Jumping Jacks", "sets": 3, "reps": 20},
+            {"name": "Burpees", "sets": 3, "reps": 12},
+            {"name": "Push-ups", "sets": 3, "reps": 12},
+        ],
+        "Thursday": [
+            {"name": "Mountain Climbers", "sets": 3, "reps": 40},
+            {"name": "High Knees", "sets": 3, "reps": 30},
+            {"name": "Bodyweight Squats", "sets": 3, "reps": 15},
+        ],
+        "Friday": [
+            {"name": "Jumping Jacks", "sets": 3, "reps": 20},
+            {"name": "Burpees", "sets": 3, "reps": 12},
+            {"name": "Push-ups", "sets": 3, "reps": 12},
+        ],
+        "Saturday": [
+            {"name": "Mountain Climbers", "sets": 3, "reps": 40},
+            {"name": "High Knees", "sets": 3, "reps": 30},
+            {"name": "Bodyweight Squats", "sets": 3, "reps": 15},
+        ],
+    }
 
-    # Endurance exercises
-    endurance_pool = [
-        {"name": "Running / Jogging", "sets": 1, "reps": 30},
-        {"name": "Cycling", "sets": 1, "reps": 30},
-        {"name": "Jump Rope", "sets": 3, "reps": 120},
-        {"name": "Rowing", "sets": 1, "reps": 20},
-        {"name": "Stair Climbing", "sets": 3, "reps": 20},
-    ]
+    # Endurance split
+    endurance_split = {
+        "Monday": [{"name": "Running", "sets": 1, "reps": 30}, {"name": "Cycling", "sets": 1, "reps": 30}],
+        "Tuesday": [{"name": "Jump Rope", "sets": 3, "reps": 120}],
+        "Wednesday": [{"name": "Rowing", "sets": 1, "reps": 20}, {"name": "Stair Climbing", "sets": 3, "reps": 20}],
+        "Thursday": [{"name": "Running", "sets": 1, "reps": 30}],
+        "Friday": [{"name": "Cycling", "sets": 1, "reps": 30}, {"name": "Jump Rope", "sets": 3, "reps": 120}],
+        "Saturday": [{"name": "Rowing", "sets": 1, "reps": 20}, {"name": "Stair Climbing", "sets": 3, "reps": 20}],
+    }
 
-    # General fitness pool
-    general_pool = [
-        {"name": "Push-ups", "sets": 3, "reps": 12},
-        {"name": "Bodyweight Squats", "sets": 3, "reps": 15},
-        {"name": "Plank", "sets": 3, "reps": 45},
-        {"name": "Lunges", "sets": 3, "reps": 12},
-        {"name": "Dumbbell Shoulder Press", "sets": 3, "reps": 12},
-        {"name": "Jump Rope", "sets": 3, "reps": 80},
-    ]
+    # General fitness split
+    general_split = {
+        "Monday": [{"name": "Push-ups", "sets": 3, "reps": 12}, {"name": "Bodyweight Squats", "sets": 3, "reps": 15}],
+        "Tuesday": [{"name": "Plank", "sets": 3, "reps": 45}],
+        "Wednesday": [{"name": "Lunges", "sets": 3, "reps": 12}, {"name": "Dumbbell Shoulder Press", "sets": 3, "reps": 12}],
+        "Thursday": [{"name": "Jump Rope", "sets": 3, "reps": 80}],
+        "Friday": [{"name": "Push-ups", "sets": 3, "reps": 12}, {"name": "Bodyweight Squats", "sets": 3, "reps": 15}],
+        "Saturday": [{"name": "Plank", "sets": 3, "reps": 45}],
+    }
 
     schedule = []
 
     for day in week_days:
-
-        # Rest days
-        if day in ["Tuesday", "Thursday", "Sunday"]:
-            schedule.append({
-                "day": day,
-                "exercises": [{"name": "Rest Day", "sets": 0, "reps": 0}]
-            })
+        if day in rest_days.get(goal, []):
+            schedule.append({"day": day, "exercises": [{"name": "Rest Day", "sets": 0, "reps": 0}]})
             continue
 
-        # MUSCLE GAIN
-        if goal == "muscle_gain" and day in muscle_split:
-            exercises = muscle_split[day]
-
-        # WEIGHT LOSS
+        # Pick exercises based on goal
+        if goal == "muscle_gain":
+            exercises = muscle_split.get(day, muscle_split["Monday"])
         elif goal == "weight_loss":
-            exercises = random.sample(weight_loss_pool, 3)
-
-        # ENDURANCE
+            exercises = weight_loss_split.get(day, weight_loss_split["Monday"])
         elif goal == "endurance":
-            exercises = random.sample(endurance_pool, 3)
-
-        # GENERAL FITNESS
+            exercises = endurance_split.get(day, endurance_split["Monday"])
         else:
-            exercises = random.sample(general_pool, 3)
+            exercises = general_split.get(day, general_split["Monday"])
 
         day_exercises = []
-
         for ex in exercises:
-
             sets = max(1, int(ex["sets"] * multiplier))
             reps = max(1, int(ex["reps"] * multiplier))
-
             if recommended_workout and goal in ["weight_loss", "endurance"]:
                 factor = recommended_workout / 30
                 sets = max(1, int(sets * factor))
                 reps = int(reps * factor)
+            day_exercises.append({"name": ex["name"], "sets": sets, "reps": reps})
 
-            day_exercises.append({
-                "name": ex["name"],
-                "sets": sets,
-                "reps": reps
-            })
-
-        schedule.append({
-            "day": day,
-            "exercises": day_exercises
-        })
+        schedule.append({"day": day, "exercises": day_exercises})
 
     return schedule
-
 
 goal_encoder = LabelEncoder()
 goal_encoder.fit([
