@@ -1,0 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 150 10% 6%;
+    --foreground: 0 0% 95%;
+
+    --card: 150 8% 10%;
+    --card-foreground: 0 0% 95%;
+
+    --popover: 150 8% 10%;
+    --popover-foreground: 0 0% 95%;
+
+    --primary: 142 72% 50%;
+    --primary-foreground: 150 10% 6%;
+
+    --secondary: 150 6% 16%;
+    --secondary-foreground: 0 0% 90%;
+
+    --muted: 150 6% 14%;
+    --muted-foreground: 150 5% 55%;
+
+    --accent: 142 72% 50%;
+    --accent-foreground: 150 10% 6%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 150 6% 20%;
+    --input: 150 6% 18%;
+    --ring: 142 72% 50%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 150 8% 8%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 142 72% 50%;
+    --sidebar-primary-foreground: 150 10% 6%;
+    --sidebar-accent: 150 6% 14%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 150 6% 20%;
+    --sidebar-ring: 142 72% 50%;
+
+    --font-heading: 'Space Grotesk', sans-serif;
+    --font-body: 'Outfit', sans-serif;
+
+    --glow-primary: 0 0 20px hsl(142 72% 50% / 0.3);
+    --glow-primary-strong: 0 0 40px hsl(142 72% 50% / 0.4);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+  }
+}
+
+@layer utilities {
+  .glow-primary {
+    box-shadow: var(--glow-primary);
+  }
+  .glow-primary-strong {
+    box-shadow: var(--glow-primary-strong);
+  }
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-emerald-300;
+  }
+}
