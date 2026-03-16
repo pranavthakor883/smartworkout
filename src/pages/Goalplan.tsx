@@ -3,30 +3,38 @@ import { Card, CardContent } from "@/components/ui/card";
 
 const GoalPlan = () => {
 
-  const [goal,setGoal] = useState("");
+  const [goal, setGoal] = useState("");
 
-  useEffect(()=>{
+  useEffect(() => {
+    const updateGoal = () => {
+      const user = JSON.parse(localStorage.getItem("userData") || "{}");
+      console.log("GoalPlan: fetched from localStorage ->", user.fitnessGoal); // ✅ debug
+      setGoal(user.fitnessGoal || "weight_loss"); // ✅ same key
+    };
 
-    const user = JSON.parse(localStorage.getItem("userData") || "{}");
-    setGoal(user.fitness_goal || user.goal || "weight_loss");
+    updateGoal(); // initial load
 
-  },[]);
+    // Listen for updates from signup/profile
+    window.addEventListener("storageUpdated", updateGoal);
+
+    return () => window.removeEventListener("storageUpdated", updateGoal);
+  }, []);
 
   const getExercises = () => {
 
-    switch(goal){
+    switch (goal) {
 
       case "muscle_gain":
-        return ["Bench Press","Squats","Deadlift","Pull Ups"];
+        return ["Bench Press", "Squats", "Deadlift", "Pull Ups"];
 
       case "weight_loss":
-        return ["Jumping Jacks","Burpees","Mountain Climbers","Running"];
+        return ["Jumping Jacks", "Burpees", "Mountain Climbers", "Running"];
 
       case "endurance":
-        return ["Cycling","Running","Swimming","Jump Rope"];
+        return ["Cycling", "Running", "Swimming", "Jump Rope"];
 
       default:
-        return ["Pushups","Plank","Squats","Stretching"];
+        return ["Pushups", "Plank", "Squats", "Stretching"];
 
     }
 
@@ -47,7 +55,7 @@ const GoalPlan = () => {
           <p className="mb-6">
             Current Goal :
             <span className="text-primary font-semibold ml-2">
-              {goal.replace("_"," ")}
+              {goal.replace(/_/g, " ")}
             </span>
           </p>
 
@@ -57,7 +65,7 @@ const GoalPlan = () => {
 
           <ul className="list-disc ml-6 space-y-2">
 
-            {getExercises().map((ex,i)=>(
+            {getExercises().map((ex, i) => (
               <li key={i}>{ex}</li>
             ))}
 

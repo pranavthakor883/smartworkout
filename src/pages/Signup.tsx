@@ -26,31 +26,31 @@ const Signup = () => {
   const [savedUser, setSavedUser] = useState(null);
 
 
- useEffect(() => {
+  useEffect(() => {
 
-  const isLoggedIn = localStorage.getItem("isLoggedIn");
-  const user = JSON.parse(localStorage.getItem("userData") || "null");
+    const isLoggedIn = localStorage.getItem("isLoggedIn");
+    const user = JSON.parse(localStorage.getItem("userData") || "null");
 
-  console.log("AutoFill User:", user);
+    console.log("AutoFill User:", user);
 
-  if (isLoggedIn && user) {
+    if (isLoggedIn && user) {
 
-    setSavedUser(user);
+      setSavedUser(user);
 
-    setFormData({
-      name: user.name || "",
-      email: user.email || "",
-      password: "",
-      age: user.age || "",
-      height: user.height || "",
-      weight: user.weight || "",
-      fitnessGoal: user.fitnessGoal || "",
-      activityLevel: user.activityLevel || ""
-    });
+      setFormData({
+        name: user.name || "",
+        email: user.email || "",
+        password: "",
+        age: user.age || "",
+        height: user.height || "",
+        weight: user.weight || "",
+        fitnessGoal: user.fitnessGoal || "",
+        activityLevel: user.activityLevel || ""
+      });
 
-  }
+    }
 
-}, []);
+  }, []);
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -95,18 +95,20 @@ const Signup = () => {
           age: data.user?.age || formData.age,
           weight: data.user?.weight || formData.weight,
           height: data.user?.height || formData.height,
-          fitnessGoal: data.user?.goal || formData.fitnessGoal,
+          fitnessGoal: formData.fitnessGoal,
           activityLevel: data.user?.activityLevel || formData.activityLevel,
           email: data.user?.email || formData.email
         };
 
         localStorage.setItem("userData", JSON.stringify(userData));
 
+        window.dispatchEvent(new Event("storageUpdated"));
+
         console.log("Saved userData:", userData);
         console.log("Check localStorage:", localStorage.getItem("userData"));
         localStorage.setItem("isLoggedIn", "true");
 
-          navigate("/");
+        navigate("/");
       } else {
         toast.error(data.message || "Signup failed ❌");
       }
