@@ -36,7 +36,7 @@ const Login = () => {
       });
 
       const data = await response.json();
-        const loginData = data.user;
+      const loginData = data.user;
 
       if (data.status === "success") {
         toast.success("Login Successful! 🎉 Welcome to FitAI.");
@@ -49,14 +49,16 @@ const Login = () => {
           age: data.user.age,
           weight: data.user.weight,
           height: data.user.height,
-        fitnessGoal: loginData.fitness_goal || loginData.goal || "weight_loss",
+          email: data.user.email, // 🔥 ADD THISyy
+          fitnessGoal: loginData.fitness_goal || loginData.goal || "weight_loss",
           activityLevel: data.user.activityLevel || data.user.activity_level,
+          role: data.user.role
         };
 
         localStorage.setItem("userData", JSON.stringify(userData));
-        window.dispatchEvent(new Event("storageUpdated")); 
+        window.dispatchEvent(new Event("storageUpdated"));
         console.log("Login: userData saved ->", userData);
-console.log("Check localStorage ->", localStorage.getItem("userData"));
+        console.log("Check localStorage ->", localStorage.getItem("userData"));
         console.log("LOGIN USER DATA:", userData);
 
         setTimeout(() => {

@@ -97,18 +97,25 @@ const Signup = () => {
           height: data.user?.height || formData.height,
           fitnessGoal: formData.fitnessGoal,
           activityLevel: data.user?.activityLevel || formData.activityLevel,
-          email: data.user?.email || formData.email
+          email: data.user?.email || formData.email,
+          role: formData.email.trim().toLowerCase() === "admin@gmail.com"
+  ? "admin"
+  : "user"
         };
 
         localStorage.setItem("userData", JSON.stringify(userData));
 
         window.dispatchEvent(new Event("storageUpdated"));
 
+        console.log("EMAIL:", formData.email);
+        console.log("ROLE:", formData.email.trim().toLowerCase());
+
         console.log("Saved userData:", userData);
         console.log("Check localStorage:", localStorage.getItem("userData"));
+        console.log("NAVIGATING TO:", userData.role === "admin" ? "/admin" : "/dashboard");
         localStorage.setItem("isLoggedIn", "true");
 
-        navigate("/");
+       navigate("/");
       } else {
         toast.error(data.message || "Signup failed ❌");
       }

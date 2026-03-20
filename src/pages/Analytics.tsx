@@ -1,43 +1,69 @@
 import { useEffect, useState } from "react";
 import SmartScheduling from "@/components/SmartScheduling";
+
 const Analytics = () => {
   const [aiResult, setAiResult] = useState<any>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
-  const dummySchedule = [
-    { day: "Monday", exercises: [{ name: "Push Ups", sets: 3, reps: 15 }], completed: true },
-    { day: "Tuesday", exercises: [{ name: "Squats", sets: 3, reps: 20 }], completed: false },
-    { day: "Wednesday", exercises: [{ name: "Plank", sets: 2, reps: 60 }], completed: true },
-    { day: "Thursday", exercises: [{ name: "Lunges", sets: 3, reps: 12 }], completed: false },
-    { day: "Friday", exercises: [{ name: "Jumping Jacks", sets: 3, reps: 30 }], completed: false },
-    { day: "Saturday", exercises: [{ name: "Burpees", sets: 3, reps: 10 }], completed: true },
-    { day: "Sunday", exercises: [{ name: "Rest Day", sets: 0, reps: 0 }], completed: true },
-  ];
-
+  // Load AI schedule from localStorage
   useEffect(() => {
     const stored = localStorage.getItem("aiResult");
     if (stored) {
       const result = JSON.parse(stored);
       if (result.schedule && result.schedule.length > 0) {
-        const scheduleWithCompletion = result.schedule.map((day: any) => ({
-          ...day,
-          completed: day.completed ?? false,
-        }));
+        const scheduleWithCompletion = result.schedule.map((day: any) => {
+          const exercises = day.exercises.map((ex: any) => ({
+            ...ex,
+            completed: ex.completed ?? (ex.name === "Rest Day" ? true : false),
+          }));
+          return { ...day, exercises };
+        });
         setAiResult({ ...result, schedule: scheduleWithCompletion });
       } else {
-        setAiResult({ schedule: dummySchedule });
+        setAiResult({ schedule: [] });
       }
     } else {
-      setAiResult({ schedule: dummySchedule });
+      setAiResult({ schedule: [] });
     }
   }, []);
 
-  // ✅ Add return statement
-  if (!aiResult?.schedule) return <p className="p-6">No schedule available.</p>;
+  // ✅ Handle toggle when user ticks an exercise
+  const handleToggleExercise = (dayIndex: number, exIndex: number) => {
+    if (!aiResult) return;
+    const updatedSchedule = [...aiResult.schedule];
+    const ex = updatedSchedule[dayIndex].exercises[exIndex];
+    ex.completed = !ex.completed;
+
+    setAiResult({ ...aiResult, schedule: updatedSchedule });
+
+    // Optional toast
+    const totalExercises = updatedSchedule.flatMap(d => d.exercises).length;
+    const completedExercises = updatedSchedule.flatMap(d => d.exercises).filter(e => e.completed).length;
+    setToast(`✅ ${ex.name} completed! ${completedExercises}/${totalExercises} exercises done.`);
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  if (!aiResult?.schedule || aiResult.schedule.length === 0) {
+    return <p className="p-6 text-center">No schedule available. Generate your plan first.</p>;
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-6">
       <h1 className="text-2xl font-bold mb-4">Real-Time Analytics</h1>
-      <SmartScheduling schedule={aiResult.schedule} showProgress={true} />
+
+      {/* Toast notification */}
+      {toast && (
+        <div className="fixed top-5 right-5 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50">
+          {toast}
+        </div>
+      )}
+
+      <SmartScheduling
+        schedule={aiResult.schedule}
+        showProgress={true}
+        interactive={true} // ✅ user can tick
+        onToggleExercise={handleToggleExercise}
+      />
     </div>
   );
 };

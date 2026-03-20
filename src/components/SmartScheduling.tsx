@@ -5,31 +5,62 @@ type Exercise = {
   name: string;
   sets: number;
   reps: number;
+  completed?: boolean;
 };
 
 type DaySchedule = {
   day: string;
   exercises: Exercise[];
-  completed?: boolean;
 };
 
 type SmartSchedulingProps = {
   schedule?: DaySchedule[];
-  showProgress?: boolean; // ✅ optional prop
+  showProgress?: boolean;
+  interactive?: boolean; // ✅ new prop
+  onToggleExercise?: (dayIndex: number, exIndex: number) => void;
 };
 
-const SmartScheduling = ({ schedule = [], showProgress = false }: SmartSchedulingProps) => {
+const SmartScheduling = ({ schedule = [], showProgress = false, interactive = false, onToggleExercise }: SmartSchedulingProps) => {
   const [weeklySchedule, setWeeklySchedule] = useState<DaySchedule[]>([]);
 
   useEffect(() => {
-    setWeeklySchedule(schedule);
+    const allDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+    const fullSchedule = allDays.map((dayName) => {
+      const day = schedule.find((d) => d.day === dayName);
+
+      if (day) {
+        const exercises = day.exercises.map((ex) => ({
+          ...ex,
+          completed: ex.completed ?? (ex.name.toLowerCase().includes("rest") ? true : false),
+        }));
+        return { ...day, exercises };
+      } else {
+        return {
+          day: dayName,
+          exercises: [{ name: "Rest Day", sets: 0, reps: 0, completed: true }],
+        };
+      }
+    });
+
+    setWeeklySchedule(fullSchedule);
   }, [schedule]);
 
+  const calculateDayCompletion = (day: DaySchedule) => {
+    if (!day.exercises || day.exercises.length === 0) return 0;
+    const doneCount = day.exercises.filter((ex) => ex.completed).length;
+    return Math.round((doneCount / day.exercises.length) * 100);
+  };
+
   const calculateGoalCompletion = (schedule: DaySchedule[]) => {
-    if (!schedule || schedule.length === 0) return 0;
-    const total = schedule.length;
-    const completed = schedule.filter(day => day.completed).length;
-    return Math.round((completed / total) * 100);
+    let totalExercises = 0;
+    let completedExercises = 0;
+    schedule.forEach((day) => {
+      totalExercises += day.exercises.length;
+      completedExercises += day.exercises.filter((ex) => ex.completed).length;
+    });
+    if (totalExercises === 0) return 0;
+    return Math.round((completedExercises / totalExercises) * 100);
   };
 
   if (weeklySchedule.length === 0)
@@ -47,9 +78,9 @@ const SmartScheduling = ({ schedule = [], showProgress = false }: SmartSchedulin
 
   return (
     <div className="mt-4 space-y-4">
-      {weeklySchedule.map((dayItem, index) => (
+      {weeklySchedule.map((dayItem, dayIdx) => (
         <div
-          key={index}
+          key={dayIdx}
           className="p-3 rounded-lg bg-background border border-border"
         >
           <div className="flex items-center gap-2 mb-2">
@@ -59,15 +90,29 @@ const SmartScheduling = ({ schedule = [], showProgress = false }: SmartSchedulin
 
           <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
             {dayItem.exercises.map((ex, exIdx) => (
-              <li key={exIdx}>
+              <li key={exIdx} className="flex items-center gap-2">
+                {/* checkbox hidden in read-only */}
+                {interactive && (
+                  <input
+                    type="checkbox"
+                    checked={ex.completed}
+                    onChange={() => onToggleExercise && onToggleExercise(dayIdx, exIdx)}
+                  />
+                )}
+
                 {ex.name} - {ex.sets} sets x {ex.reps} reps
+
+                {/* ✅ only show completed, no pending */}
+                {ex.completed && (
+                  <span className="text-green-500 ml-1 font-semibold">✅ Completed</span>
+                )}
               </li>
             ))}
           </ul>
 
           {showProgress && (
             <div className="mt-2 text-sm text-primary font-semibold">
-              Status: {dayItem.completed ? "✅ Completed" : "❌ Pending"}
+              Status: {calculateDayCompletion(dayItem)}% Completed
             </div>
           )}
         </div>

@@ -145,7 +145,8 @@ const Home = () => {
       const userAge = Number(user.age || age);
       const userWeight = Number(user.weight || weight);
       const userHeight = Number(user.height || height);
-      const userGoal = user.fitnessGoal || goal || "weight_loss";
+      const userGoal = user.fitness_goal || user.fitnessGoal || goal || "weight_loss";
+      const normalizedGoal = (userGoal || "").toLowerCase().replace(" ", "_");
       const userActivity =
         activityLevel || user.activityLevel || user.activity_level || "sedentary";
 
@@ -207,12 +208,20 @@ const Home = () => {
         setLoadingAI(false);
         return;
       }
+      const cleanedSchedule = workoutResult.schedule.map((day: any) => ({
+        ...day,
+        exercises: day.exercises.map((ex: any) => ({
+          name: ex.name,
+          sets: ex.sets,
+          reps: ex.reps,
+          completed: false
+        }))
+      }));
 
-      //Combine results and save
       const finalResult = {
         ...predictResult,
-        schedule: workoutResult.schedule,
-        goal: user.fitnessGoal || goal  // yahan goal ensure karo
+        schedule: cleanedSchedule,
+        goal: workoutResult.goal || user.fitness_goal || goal
       };
 
       console.log("AI Result:", finalResult);
@@ -255,12 +264,17 @@ const Home = () => {
             <Link to="/about" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               About
             </Link>
-            <Link to="/blog" className="block text-sm text-muted-foreground">
+            <Link to="/blog" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Blog
             </Link>
-            <Link to="/report" className="block text-sm text-muted-foreground">
+            <Link to="/report" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Report
             </Link>
+            {user?.role === "admin" && (
+              <Link to="/admin" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                Admin Panel
+              </Link>
+            )}
             <a href="/feedback" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Feedback
             </a>
@@ -297,6 +311,7 @@ const Home = () => {
                       variant="ghost"
                       onClick={() => {
                         localStorage.removeItem("isLoggedIn");
+                        localStorage.clear();
                         window.location.reload();
                       }}
                     >
@@ -380,13 +395,23 @@ const Home = () => {
                   if (feature.title === "Real-Time Analytics") {
                     navigate("/analytics");
                   }
+                  // ✅ Add this for Community Driven
+                  if (feature.title === "Community Driven") {
+                    navigate("/community"); // new route
+                  }
+                  if (feature.title === "Adaptive Progress") {
+                    navigate("/adaptive-progress");
+                  }
+
                 }}
-               className={feature.title === "AI-Powered Plan" ||
-              feature.title === "Health Tracker" ||
-              feature.title === "Goal-Oriented" ||
-              feature.title === "Real-Time Analytics"
-              ? "cursor-pointer hover:scale-105 transition"
-              : ""}
+                className={feature.title === "AI-Powered Plan" ||
+                  feature.title === "Health Tracker" ||
+                  feature.title === "Goal-Oriented" ||
+                  feature.title === "Real-Time Analytics" ||
+                  feature.title === "Community Driven"||
+                  feature.title === "Adaptive Progress"
+                  ? "cursor-pointer hover:scale-105 transition"
+                  : ""}
               >
                 <CardContent className="p-6">
                   <feature.icon className="w-6 h-6 text-primary mb-4" />
@@ -415,7 +440,8 @@ const Home = () => {
 
                 <SmartScheduling
                   schedule={aiResult.schedule}
-                  showProgress={false} 
+                  showProgress={true}
+                   interactive={false} // ✅ read-only
                 />
               </CardContent>
             </Card>

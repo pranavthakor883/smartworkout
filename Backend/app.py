@@ -1,3 +1,4 @@
+import json
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import mysql.connector
@@ -6,19 +7,17 @@ from datetime import datetime
 import joblib
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
+import random
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # ------------------ ML Models ------------------
 clf = joblib.load("fitness_level_model.pkl")
-reg = joblib.load("workout_duration_model.pkl")
+reg = joblib.load("workout_duration_model.pkl")    
 
-import random
-
-
+ 
 def generate_schedule(activity, goal="weight_loss", recommended_workout=None):
-    import random
 
     week_days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
@@ -142,11 +141,12 @@ def generate_schedule(activity, goal="weight_loss", recommended_workout=None):
                 factor = recommended_workout / 30
                 sets = max(1, int(sets * factor))
                 reps = int(reps * factor)
-            day_exercises.append({"name": ex["name"], "sets": sets, "reps": reps})
+            day_exercises.append({"name": ex["name"], "sets": sets, "reps": reps, "completed": False})
 
-        schedule.append({"day": day, "exercises": day_exercises})
+        schedule.append({"day": day, "exercises": day_exercises, "completed": False })
 
     return schedule
+
 
 goal_encoder = LabelEncoder()
 goal_encoder.fit([
@@ -200,32 +200,36 @@ def signup():
     fitness_goal = fitness_goal.lower().replace(" ", "_")
     activity_level = data.get("activity_level")
 
+    # 👇 AUTO ADMIN LOGIC
+    if email == "admin@gmail.com":
+        role = "admin"
+    else:
+        role = "user"
+
     if not email or not password:
         log("[SIGNUP ERROR] Missing required fields")
         return jsonify({"status": "error", "message": "Missing required fields"})
 
     hashed_pw = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
 
+    from datetime import datetime
+    signup_date = datetime.now()
 
     # Check if user already exists
     cursor.execute("SELECT * FROM users WHERE email=%s", (email,))
     existing_user = cursor.fetchone()
 
     if existing_user:
-
         sql = """
             UPDATE users 
             SET name=%s, age=%s, height=%s, weight=%s, 
-                fitness_goal=%s, activity_level=%s
+                fitness_goal=%s, activity_level=%s, role=%s
             WHERE email=%s
         """
-
-        cursor.execute(sql, (name, age, height, weight, fitness_goal, activity_level, email))
+        cursor.execute(sql, (name, age, height, weight, fitness_goal, activity_level, role, email))
         db.commit()
 
         user_id = existing_user["id"]
-
-        log(f"[PROFILE UPDATED] {email}")
 
         return jsonify({
             "status": "updated",
@@ -237,22 +241,22 @@ def signup():
                 "height": height,
                 "goal": fitness_goal,
                 "activityLevel": activity_level,
+                "role": role,
+                "signupDate": signup_date.strftime("%Y-%m-%d %H:%M:%S"),
                 "email": email
             }
         })
 
     try:
         sql = """
-            INSERT INTO users (name, email, password, age, height, weight, fitness_goal, activity_level)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO users (name, email, password, age, height, weight, fitness_goal, activity_level, role, signup_date)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
-        cursor.execute(sql, (name, email, hashed_pw, age, height, weight, fitness_goal, activity_level))
+        cursor.execute(sql, (name, email, hashed_pw, age, height, weight, fitness_goal, activity_level, role, signup_date))
         db.commit()
         
-        # ✅ Fetch the new user ID
         user_id = cursor.lastrowid
 
-        log(f"[SIGNUP SUCCESS] User added: {email} with ID {user_id}")
         return jsonify({
             "status": "success",
             "user": {
@@ -263,16 +267,15 @@ def signup():
                 "height": height,
                 "goal": fitness_goal,
                 "activityLevel": activity_level,
+                "role": role,
+                "signupDate": signup_date.strftime("%Y-%m-%d %H:%M:%S"),
                 "email": email
             }
         })
 
-        log(f"[SIGNUP SUCCESS] User added: {email}")
     except mysql.connector.IntegrityError:
-        log(f"[SIGNUP FAILED] Email already exists: {email}")
         return jsonify({"status": "error", "message": "Email already exists"})
     except Exception as e:
-        log(f"[SIGNUP ERROR] {e}")
         return jsonify({"status": "error", "message": str(e)})
 
 
@@ -302,8 +305,11 @@ def login():
             "age": user["age"],
             "weight": user["weight"],
             "height": user["height"],
+            "email": user["email"],
             "goal": user["fitness_goal"],
-            "activityLevel": user["activity_level"]
+            "activityLevel": user["activity_level"],
+            "role": user["role"],  # 🔥 ADD THIS
+            "signupDate": user["signup_date"].strftime("%Y-%m-%d %H:%M:%S") if isinstance(user.get("signup_date"), datetime) else user.get("signup_date")
         }
 
         print("LOGIN USER DATA:", user_data)  # debugging
@@ -320,12 +326,63 @@ def login():
         })
 
 
+#-------------------Users----------------------------
+#-------------------Users----------------------------
 @app.route("/users", methods=["GET"])
 def get_users():
-    cursor.execute("SELECT id, name, email FROM users")
-    users = cursor.fetchall()
-    log(f"[GET USERS] Total users: {len(users)}")
-    return jsonify(users)
+    try:
+        with db.cursor(dictionary=True) as cursor:
+            cursor.execute("""
+                SELECT id, name, email, age, weight, height, fitness_goal, activity_level, signup_date
+                FROM users
+                WHERE role != 'admin'
+                ORDER BY signup_date DESC
+            """)
+            users = cursor.fetchall()
+
+        # Convert signup_date to string
+        for u in users:
+            if isinstance(u["signup_date"], datetime):
+                u["signup_date"] = u["signup_date"].strftime("%Y-%m-%d %H:%M:%S")
+            
+            # Optional: BMI calculation (tumhare code me already hai)
+            try:
+                height_m = float(u["height"]) / 100
+                weight_kg = float(u["weight"])
+                bmi = weight_kg / (height_m ** 2)
+                u["bmi"] = round(bmi, 2)
+                if bmi < 18.5:
+                    u["bmi_category"] = "Underweight"
+                elif bmi < 25:
+                    u["bmi_category"] = "Normal"
+                elif bmi < 30:
+                    u["bmi_category"] = "Overweight"
+                else:
+                    u["bmi_category"] = "Obese"
+            except Exception:
+                u["bmi"] = None
+                u["bmi_category"] = "Unknown"
+
+        return jsonify({"users": users})
+
+    except Exception as e:
+        print("[ERROR] Fetching users failed:", e)
+        return jsonify({"users": []}), 500
+
+    
+#-----------------------delete----------------------------------
+@app.route("/delete-user/<int:user_id>", methods=["DELETE"])
+def delete_user(user_id):
+    try:
+        with db.cursor() as cursor:
+            cursor.execute("DELETE FROM users WHERE id=%s", (user_id,))
+            db.commit()
+            if cursor.rowcount == 0:
+                return jsonify({"status": "error", "error": "User not found"}), 404
+        return jsonify({"status": "deleted"})
+    except mysql.connector.Error as e:
+        # FK ya constraint error
+        return jsonify({"status": "error", "error": "Cannot delete user due to related data"}), 400
 
 
 # ------------------ Predict Endpoint ------------------
@@ -399,7 +456,7 @@ def predict():
 
         return jsonify({
             "fitness_level": level_map.get(int(fitness_level)),
-            "recommended_workout": int(workout_duration)
+            "recommended_workout": int(workout_duration),
         })
 
     except Exception as e:
@@ -501,17 +558,24 @@ def submit_feedback():
     try:
         cursor = db.cursor()
 
-        # Check duplicate
+        # Check duplicate in feedback table
         cursor.execute("SELECT id FROM feedback WHERE user_id = %s", (user_id,))
         if cursor.fetchone():
             cursor.close()
             return jsonify({"success": False, "error": "Feedback already submitted"}), 400
 
-        # Insert feedback (rating removed)
+        # Insert into feedback table
         cursor.execute(
             "INSERT INTO feedback (user_id, feedback_text) VALUES (%s, %s)",
             (user_id, feedback_text)
         )
+
+        # ✅ Update users table
+        cursor.execute(
+            "UPDATE users SET feedback_submitted = 1 WHERE id = %s",
+            (user_id,)
+        )
+
         db.commit()
         cursor.close()
 
@@ -520,6 +584,90 @@ def submit_feedback():
     except Exception as e:
         print("Error saving feedback:", e)
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+#-----------------------------------------------------------------
+@app.route("/all-feedbacks", methods=["GET"])
+def all_feedbacks():
+    try:
+        # Use a context manager to auto-close cursor
+        with db.cursor(dictionary=True) as cursor:
+            query = """
+                SELECT f.id, f.user_id, f.feedback_text, u.name, u.email
+                FROM feedback f
+                JOIN users u ON f.user_id = u.id
+                ORDER BY f.id DESC
+            """
+            cursor.execute(query)
+            feedbacks = cursor.fetchall()
+
+        # Ensure feedbacks is always a list
+        if feedbacks is None:
+            feedbacks = []
+
+        return jsonify({"feedbacks": feedbacks})
+
+    except mysql.connector.errors.OperationalError as e:
+        # Try to reconnect if connection lost
+        try:
+            db.ping(reconnect=True, attempts=3, delay=5)
+            print("[INFO] Reconnected to DB, please retry the request.")
+        except Exception as recon_err:
+            print("[ERROR] DB reconnection failed:", recon_err)
+        return jsonify({"feedbacks": [], "success": False, "error": "Database connection lost"}), 500
+
+    except mysql.connector.Error as db_err:
+        print(f"[DB ERROR] Fetching feedbacks failed: {db_err}")
+        return jsonify({"feedbacks": [], "success": False, "error": "Database error occurred"}), 500
+
+    except Exception as e:
+        print(f"[ERROR] Fetching feedbacks failed: {e}")
+        return jsonify({"feedbacks": [], "success": False, "error": str(e)}), 500
+
+    #--------------------------------------------------------------
+@app.route("/delete-feedback/<int:feedback_id>", methods=["DELETE"])
+def delete_feedback(feedback_id):
+    try:
+        with db.cursor() as cursor:
+            cursor.execute("DELETE FROM feedback WHERE id=%s", (feedback_id,))
+            db.commit()
+        return jsonify({"status": "deleted"})
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e)}), 500
+#---------------------------------------------------------------------
+@app.route("/update-schedule", methods=["POST"])
+def update_schedule():
+    try:
+        data = request.get_json()
+        user_id = data.get("user_id")
+        schedule = data.get("schedule")
+
+        if not user_id or not schedule:
+            return jsonify({"error": "Missing user_id or schedule"}), 400
+
+        # ✅ yahan database me update logic likho
+        # e.g., UPDATE user_schedule SET schedule = JSON(schedule) WHERE user_id = ...
+
+        return jsonify({"status": "success", "message": "Schedule updated"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    #--------------------------------------------------------------------
+@app.route("/get-user-schedule/<int:user_id>", methods=["GET"])
+def get_user_schedule(user_id):
+    try:
+        cursor = db.cursor(dictionary=True)
+        cursor.execute("SELECT schedule_json FROM user_schedules WHERE user_id = %s", (user_id,))
+        row = cursor.fetchone()
+        cursor.close()
+
+        if row and row["schedule_json"]:
+            schedule = json.loads(row["schedule_json"])  # ✅ string -> JSON
+            return jsonify({"schedule": schedule})
+        else:
+            return jsonify({"schedule": []})
+    except Exception as e:
+        print("Error fetching schedule:", e)
+        return jsonify({"schedule": []})
 
 
 # ------------------ Run Server ------------------

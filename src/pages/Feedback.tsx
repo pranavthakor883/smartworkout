@@ -9,7 +9,9 @@ import { MessageSquare, Star, Send, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import Footer from "@/components/ui/Footer";
+
 const ratings = [1, 2, 3, 4, 5];
+
 const Feedback = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -17,6 +19,7 @@ const Feedback = () => {
   const [hoverRating, setHoverRating] = useState(0);
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -24,15 +27,13 @@ const Feedback = () => {
       toast.error("Please fill in your name, rating, and feedback message.");
       return;
     }
-    // 👆 Yaha add karo ye block
+
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
     const userId = userData.id;
 
     setSubmitting(true);
 
     try {
-      const userId = userData.id;
-
       const res = await fetch("http://localhost:5000/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -62,17 +63,14 @@ const Feedback = () => {
       setSubmitting(false);
     }
   };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Header */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <Link to="/" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
           </Link>
-           {/* Spacer */}
           <div className="flex-1"></div>
-
-          {/* Back to Home button */}
           <div className="hidden md:flex items-center">
             <Button variant="ghost" asChild>
               <Link to="/" className="flex items-center gap-1">
@@ -142,10 +140,7 @@ const Feedback = () => {
                           className="transition-transform hover:scale-110"
                         >
                           <Star
-                            className={`w-8 h-8 transition-colors ${star <= (hoverRating || rating)
-                              ? "text-primary fill-primary"
-                              : "text-muted-foreground"
-                              }`}
+                            className={`w-8 h-8 transition-colors ${star <= (hoverRating || rating) ? "text-primary fill-primary" : "text-muted-foreground"}`}
                           />
                         </button>
                       ))}
@@ -182,4 +177,5 @@ const Feedback = () => {
     </div>
   );
 };
+
 export default Feedback;
