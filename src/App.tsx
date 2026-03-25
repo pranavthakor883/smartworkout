@@ -18,7 +18,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 import Analytics from "./pages/Analytics";
 import Feedback from "./pages/Feedback"
-import HealthTracker from "./pages/HealthTracker";;
+import HealthTracker from "./pages/HealthTracker";
 import AIPlan from "./pages/Aiplan";
 import ProtectedRoute from "./components/ProtectedRoute";
 

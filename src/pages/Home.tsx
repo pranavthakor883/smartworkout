@@ -249,6 +249,18 @@ const Home = () => {
   return (
     <div className="min-h-screen bg-background text-foreground">
 
+      {/* {!isLoggedIn && (
+        <div className="fixed inset-0 bg-black/60 z-[999] flex items-center justify-center">
+          <div className="bg-white p-6 rounded-xl text-center">
+            <h2 className="text-xl font-bold">You are logged out</h2>
+            <p className="text-sm mt-2">Please login to continue</p>
+            <Button onClick={() => navigate("/login")} className="mt-4">
+              Go to Login
+            </Button>
+          </div>
+        </div>
+      )} */}
+
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <Link to="/about" className="flex items-center gap-3">
@@ -381,6 +393,9 @@ const Home = () => {
             <motion.div key={feature.title} custom={i} variants={fadeUp}>
               <Card
                 onClick={() => {
+                  if (!isLoggedIn) return;
+
+
                   if (feature.title === "AI-Powered Plan") {
                     handleGenerateWorkout();
                   }
@@ -404,14 +419,17 @@ const Home = () => {
                   }
 
                 }}
-                className={feature.title === "AI-Powered Plan" ||
-                  feature.title === "Health Tracker" ||
-                  feature.title === "Goal-Oriented" ||
-                  feature.title === "Real-Time Analytics" ||
-                  feature.title === "Community Driven"||
-                  feature.title === "Adaptive Progress"
-                  ? "cursor-pointer hover:scale-105 transition"
-                  : ""}
+                className={
+                  isLoggedIn &&
+                    (feature.title === "AI-Powered Plan" ||
+                      feature.title === "Health Tracker" ||
+                      feature.title === "Goal-Oriented" ||
+                      feature.title === "Real-Time Analytics" ||
+                      feature.title === "Community Driven" ||
+                      feature.title === "Adaptive Progress")
+                    ? "cursor-pointer hover:scale-105 transition"
+                    : "opacity-50 cursor-not-allowed"
+                }
               >
                 <CardContent className="p-6">
                   <feature.icon className="w-6 h-6 text-primary mb-4" />
@@ -441,7 +459,7 @@ const Home = () => {
                 <SmartScheduling
                   schedule={aiResult.schedule}
                   showProgress={true}
-                   interactive={false} // ✅ read-only
+                  interactive={false} // ✅ read-only
                 />
               </CardContent>
             </Card>

@@ -24,6 +24,8 @@ const Signup = () => {
     activityLevel: "",
   });
   const [savedUser, setSavedUser] = useState(null);
+  const storedUser = localStorage.getItem("userData");
+  const user = storedUser ? JSON.parse(storedUser) : null;
 
 
   useEffect(() => {
@@ -88,6 +90,8 @@ const Signup = () => {
         } else {
           toast.success("Profile Updated Successfully ✅");
         }
+        
+         localStorage.setItem("userData", JSON.stringify(data.user));
 
         const userData = {
           id: data.user?.id,
@@ -98,9 +102,7 @@ const Signup = () => {
           fitnessGoal: formData.fitnessGoal,
           activityLevel: data.user?.activityLevel || formData.activityLevel,
           email: data.user?.email || formData.email,
-          role: formData.email.trim().toLowerCase() === "admin@gmail.com"
-  ? "admin"
-  : "user"
+           role: data.user?.role
         };
 
         localStorage.setItem("userData", JSON.stringify(userData));
@@ -115,7 +117,7 @@ const Signup = () => {
         console.log("NAVIGATING TO:", userData.role === "admin" ? "/admin" : "/dashboard");
         localStorage.setItem("isLoggedIn", "true");
 
-       navigate("/");
+        navigate("/");
       } else {
         toast.error(data.message || "Signup failed ❌");
       }
@@ -159,9 +161,21 @@ const Signup = () => {
           <span className="text-2xl font-bold font-heading">FitAI</span>
         </div>
 
-        <Link to="/" className="text-sm text-primary hover:underline flex items-center gap-1">
-          ← Back to Home
-        </Link>
+        {user && user.role === "admin" ? (
+          <Link
+            to="/admin"
+            className="text-sm text-primary hover:underline flex items-center gap-1"
+          >
+            ← Go to Admin Dashboard
+          </Link>
+        ) : (
+          <Link
+            to="/"
+            className="text-sm text-primary hover:underline flex items-center gap-1"
+          >
+            ← Back to Home
+          </Link>
+        )}
 
         <div>
           <h1 className="text-3xl font-bold font-heading">

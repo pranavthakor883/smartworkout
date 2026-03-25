@@ -14,7 +14,9 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [feedback, setFeedback] = useState("");
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
-  const userId = JSON.parse(localStorage.getItem("userData"))?.id;
+  const storedUser = localStorage.getItem("userData");
+  const userId = storedUser ? JSON.parse(storedUser).id : null;
+  const user = storedUser ? JSON.parse(storedUser) : null;
   const feedbackKey = `feedbackSubmitted_${userId}`;
 
   useEffect(() => {
@@ -49,7 +51,7 @@ const Login = () => {
           age: data.user.age,
           weight: data.user.weight,
           height: data.user.height,
-          email: data.user.email, // 🔥 ADD THISyy
+          email: data.user.email,
           fitnessGoal: loginData.fitness_goal || loginData.goal || "weight_loss",
           activityLevel: data.user.activityLevel || data.user.activity_level,
           role: data.user.role
@@ -61,9 +63,11 @@ const Login = () => {
         console.log("Check localStorage ->", localStorage.getItem("userData"));
         console.log("LOGIN USER DATA:", userData);
 
-        setTimeout(() => {
+        if (data.user.role === "admin") {
+          navigate("/admin");
+        } else {
           navigate("/");
-        }, 500);
+        }
 
       } else {
         alert(data.message || "Invalid credentials ❌");
@@ -106,9 +110,14 @@ const Login = () => {
             <span className="text-2xl font-bold font-heading">FitAI</span>
           </div>
 
-          <Link to="/" className="text-sm text-primary hover:underline flex items-center gap-1">
-            ← Back to Home
-          </Link>
+          {(!user || user.role !== "admin") && (
+            <Link
+              to="/dashboard"
+              className="text-sm text-primary hover:underline flex items-center gap-1"
+            >
+              ← Back to Home
+            </Link>
+          )}
 
           <div>
             <h1 className="text-3xl font-bold font-heading">Welcome back</h1>

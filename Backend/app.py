@@ -200,12 +200,7 @@ def signup():
     fitness_goal = data.get("fitness_goal")
     fitness_goal = fitness_goal.lower().replace(" ", "_")
     activity_level = data.get("activity_level")
-
-    # 👇 AUTO ADMIN LOGIC
-    if email == "admin@gmail.com":
-        role = "admin"
-    else:
-        role = "user"
+    role = "user"
 
     if not email or not password:
         log("[SIGNUP ERROR] Missing required fields")
@@ -224,13 +219,15 @@ def signup():
     existing_user = cursor.fetchone()
 
     if existing_user:
+        cursor.execute("SELECT role FROM users WHERE email=%s", (email,))
+        real_role = cursor.fetchone()["role"]
         sql = """
             UPDATE users 
             SET name=%s, age=%s, height=%s, weight=%s, 
-                fitness_goal=%s, activity_level=%s, role=%s
+            fitness_goal=%s, activity_level=%s
             WHERE email=%s
         """
-        cursor.execute(sql, (name, age, height, weight, fitness_goal, activity_level, role, email))
+        cursor.execute(sql, (name, age, height, weight, fitness_goal, activity_level, email))
         db.commit()
         
         cursor.close()
@@ -248,7 +245,7 @@ def signup():
                 "height": height,
                 "goal": fitness_goal,
                 "activityLevel": activity_level,
-                "role": role,
+                "role": real_role,
                 "signupDate": signup_date.strftime("%Y-%m-%d %H:%M:%S"),
                 "email": email
             }
@@ -261,7 +258,6 @@ def signup():
         """
         cursor.execute(sql, (name, email, hashed_pw, age, height, weight, fitness_goal, activity_level, role, signup_date))
         db.commit()
-        
         
         user_id = cursor.lastrowid
         
@@ -292,60 +288,61 @@ def signup():
 
 @app.route("/login", methods=["POST"])
 def login():
-    data = request.json
+    try:
+        data = request.json
 
-    email = data.get("email")
-    password = data.get("password")
+        email = data.get("email")
+        password = data.get("password")
 
-    if not email or not password:
-        return jsonify({
-            "status": "error",
-            "message": "Email and password required"
-        })
-        
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+        if not email or not password:
+            return jsonify({"status": "error", "message": "Missing fields"}), 400
 
-    cursor.execute("SELECT * FROM users WHERE email=%s", (email,))
-    user = cursor.fetchone()
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
 
-    print("USER DATA FROM DB:", user)
+        cursor.execute("SELECT * FROM users WHERE email=%s", (email,))
+        user = cursor.fetchone()
 
-    # ✅ FIXED HERE
-    if user and bcrypt.checkpw(password.encode("utf-8"), user["password"].encode("utf-8")):
+        print("USER:", user)
 
-        user_data = {
-            "id": user["id"],
-            "name": user["name"],
-            "age": user["age"],
-            "weight": user["weight"],
-            "height": user["height"],
-            "email": user["email"],
-            "goal": user["fitness_goal"],
-            "activityLevel": user["activity_level"],
-            "role": user["role"],  # ✅ this is fine
-            "signupDate": user["signup_date"].strftime("%Y-%m-%d %H:%M:%S")
-            if isinstance(user.get("signup_date"), datetime)
-            else user.get("signup_date")
-        }
+        if user:
+            if user["role"] == "admin" and password == user["password"]:
+                login_success = True
+    # ✅ Normal user: hashed password
+            elif user["role"] != "admin" and bcrypt.checkpw(
+                password.encode("utf-8"), user["password"].encode("utf-8") if isinstance(user["password"], str) else user["password"]):
+                login_success = True
+            else:
+                login_success = False
 
-        print("LOGIN USER DATA:", user_data)
-        
+            # ✅ SAFE RESPONSE (NO PASSWORD)
+            user_data = {
+                "id": user["id"],
+                "name": user["name"],
+                "email": user["email"],
+                "age": user["age"],
+                "weight": user["weight"],
+                "height": user["height"],
+                "fitness_goal": user["fitness_goal"],
+                "activity_level": user["activity_level"],
+                "role": user["role"],
+                "signup_date": user["signup_date"].strftime("%Y-%m-%d %H:%M:%S")
+                if user.get("signup_date") else None
+            }
+
+            cursor.close()
+            db.close()
+
+            return jsonify({"status": "success", "user": user_data})
+
         cursor.close()
         db.close()
 
-        return jsonify({
-            "status": "success",
-            "user": user_data
-        })
+        return jsonify({"status": "error", "message": "Invalid credentials"}), 401
 
-    else:
-        cursor.close()   # ✅ ADD
-        db.close() 
-        return jsonify({
-            "status": "error",
-            "message": "Invalid credentials"
-        })
+    except Exception as e:
+        print("LOGIN ERROR:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 #-------------------Users----------------------------
@@ -353,17 +350,16 @@ def login():
 @app.route("/users", methods=["GET"])
 def get_users():
     try:
-        db = get_db()   # ✅ ADD THIS
+        db = get_db()  # ✅ ADD THIS
         with db.cursor(dictionary=True) as cursor:
             cursor.execute("""
-                SELECT id, name, email, age, weight, height, fitness_goal, activity_level, signup_date
-                FROM users
-                WHERE role != 'admin'
-                ORDER BY signup_date DESC
-            """)
+        SELECT id, name, email, age, weight, height, fitness_goal, activity_level, signup_date, role
+        FROM users
+        ORDER BY signup_date DESC
+    """)
             users = cursor.fetchall()
 
-        db.close()   # ✅ ADD THIS
+        db.close()  # ✅ ADD THIS
 
         return jsonify({"users": users})
 
@@ -376,12 +372,30 @@ def get_users():
 @app.route("/delete-user/<int:user_id>", methods=["DELETE"])
 def delete_user(user_id):
     try:
-        db = get_db()   # ✅ ADD
-        with db.cursor() as cursor:
-            cursor.execute("DELETE FROM users WHERE id=%s", (user_id,))
-            db.commit()
+        email = request.headers.get("email")  # 👈 user identify
 
-        db.close()   # ✅ ADD
+        if not email:
+            return jsonify({"status": "error", "message": "No user provided"}), 401
+
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+
+        # ✅ Check role from DB
+        cursor.execute("SELECT role FROM users WHERE email=%s", (email,))
+        user = cursor.fetchone()
+
+        if not user or user["role"] != "admin":
+            cursor.close()
+            db.close()
+            return jsonify({"status": "error", "message": "Unauthorized ❌"}), 403
+
+        # ✅ Delete user
+        cursor.execute("DELETE FROM users WHERE id=%s", (user_id,))
+        db.commit()
+
+        cursor.close()
+        db.close()
+
         return jsonify({"status": "deleted"})
 
     except Exception as e:
@@ -396,8 +410,6 @@ def predict():
          
         if not data:
             return jsonify({"error": "No input data provided"}), 400
-        
-        
 
         # If email is provided, fetch user from DB
         email = data.get("email")
@@ -471,6 +483,7 @@ def predict():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 #---------------------------------------------------------------------------------------
+
 
 @app.route("/generate-workout", methods=["POST"])
 def generate_workout():
@@ -556,6 +569,7 @@ def submit_feedback():
     data = request.json
     user_id_raw = data.get("userId")
     feedback_text = data.get("feedback")
+    rating = data.get("rating", 0)
 
     if not user_id_raw:
         return jsonify({"success": False, "error": "Missing userId"}), 400
@@ -576,9 +590,9 @@ def submit_feedback():
 
         # Insert into feedback table
         cursor.execute(
-            "INSERT INTO feedback (user_id, feedback_text) VALUES (%s, %s)",
-            (user_id, feedback_text)
-        )
+        "INSERT INTO feedback (user_id, feedback_text, rating) VALUES (%s, %s, %s)",
+        (user_id, feedback_text, rating)
+    )
 
         # ✅ Update users table
         cursor.execute(
@@ -588,7 +602,7 @@ def submit_feedback():
 
         db.commit()
         cursor.close()
-        db.close()   # ✅ ADD
+        db.close()  # ✅ ADD
         return jsonify({"success": True})
 
     except Exception as e:
@@ -600,18 +614,18 @@ def submit_feedback():
 @app.route("/all-feedbacks", methods=["GET"])
 def all_feedbacks():
     try:
-        db = get_db()   # ✅ ADD
+        db = get_db()  # ✅ ADD
         with db.cursor(dictionary=True) as cursor:
             query = """
-                SELECT f.id, f.user_id, f.feedback_text, u.name, u.email
-                FROM feedback f
-                JOIN users u ON f.user_id = u.id
-                ORDER BY f.id DESC
-            """
+    SELECT f.id, f.user_id, f.feedback_text, f.rating, u.name, u.email
+    FROM feedback f
+    JOIN users u ON f.user_id = u.id
+    ORDER BY f.id DESC
+"""
             cursor.execute(query)
             feedbacks = cursor.fetchall()
 
-        db.close()   # ✅ ADD
+        db.close()  # ✅ ADD
 
         return jsonify({"feedbacks": feedbacks})
 
@@ -624,16 +638,127 @@ def all_feedbacks():
 @app.route("/delete-feedback/<int:feedback_id>", methods=["DELETE"])
 def delete_feedback(feedback_id):
     try:
-        db = get_db()   # ✅ ADD
-        with db.cursor() as cursor:
-            cursor.execute("DELETE FROM feedback WHERE id=%s", (feedback_id,))
-            db.commit()
+        email = request.headers.get("email")
+        if not email:
+            return jsonify({"status": "error", "message": "Missing email header"}), 400
 
-        db.close()   # ✅ ADD
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+
+        cursor.execute("SELECT role FROM users WHERE email=%s", (email,))
+        user = cursor.fetchone()
+
+        if not user or user["role"] != "admin":
+            cursor.close()
+            db.close()
+            return jsonify({"status": "error", "message": "Unauthorized ❌"}), 403
+
+        # Debug
+        print("Admin deleting feedback ID:", feedback_id)
+
+        cursor.execute("DELETE FROM feedback WHERE id=%s", (feedback_id,))
+        db.commit()
+
+        cursor.close()
+        db.close()
+
         return jsonify({"status": "deleted"})
 
     except Exception as e:
+        print("DELETE FEEDBACK ERROR:", e)
         return jsonify({"status": "error", "error": str(e)}), 500
+
+
+    #-----------------------promote admin-------------------------
+@app.route("/promote-user/<int:user_id>", methods=["POST"])
+def promote_user(user_id):
+
+    try:
+        # 1️⃣ ये चेक करना कि जो कॉल कर रहा है वो एडमिन है
+        email = request.headers.get("email")  # एडमिन अपना ईमेल हेडर में भेजे
+        if not email:
+            return jsonify({"status": "error", "message": "ईमेल हेडर गायब है"}), 400
+
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+
+        cursor.execute("SELECT role FROM users WHERE email=%s", (email,))
+        user = cursor.fetchone()
+        if not user or user["role"] != "admin":
+            cursor.close()
+            db.close()
+            return jsonify({"status": "error", "message": "अनधिकृत ❌"}), 403
+
+        # 2️⃣ टार्गेट यूज़र को एडमिन बनाना
+        cursor.execute("UPDATE users SET role='admin' WHERE id=%s", (user_id,))
+        db.commit()
+
+        cursor.execute("SELECT id, name, email, role FROM users WHERE id=%s", (user_id,))
+        promoted_user = cursor.fetchone()
+
+        cursor.close()
+        db.close()
+
+        if promoted_user:
+            return jsonify({
+                "status": "success",
+                "message": f"{promoted_user['name']} को अब एडमिन बना दिया गया ✅",
+                "user": promoted_user
+            })
+        else:
+            return jsonify({"status": "error", "message": "यूज़र नहीं मिला"}), 404
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+    
+#--------------------------demote user-----------------------------------
+@app.route("/demote-user/<int:user_id>", methods=["POST"])
+def demote_user(user_id):
+    try:
+        admin_email = request.headers.get("email")
+        if not admin_email:
+            return jsonify({"status": "error", "message": "Missing email header"}), 400
+
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+
+        # ✅ Check if the requester is admin
+        cursor.execute("SELECT role FROM users WHERE email=%s", (admin_email,))
+        admin_user = cursor.fetchone()
+        if not admin_user or admin_user["role"] != "admin":
+            cursor.close()
+            db.close()
+            return jsonify({"status": "error", "message": "Unauthorized ❌"}), 403
+
+        # ✅ Get the target user
+        cursor.execute("SELECT id, email, role, name FROM users WHERE id=%s", (user_id,))
+        target_user = cursor.fetchone()
+        if not target_user or target_user["role"] != "admin":
+            cursor.close()
+            db.close()
+            return jsonify({"status": "fail", "message": "User not found or not admin"}), 404
+
+        # ❌ Prevent self-demote
+        if target_user["email"] == admin_email:
+            cursor.close()
+            db.close()
+            return jsonify({"status": "fail", "message": "You cannot demote yourself"}), 403
+
+        # ✅ Demote
+        cursor.execute("UPDATE users SET role='user' WHERE id=%s", (user_id,))
+        db.commit()
+
+        cursor.close()
+        db.close()
+
+        return jsonify({
+            "status": "success",
+            "message": f"{target_user['name']} has been demoted to user ✅"
+        })
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 # ------------------ Run Server ------------------
