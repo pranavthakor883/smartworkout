@@ -38,6 +38,24 @@ const Home = () => {
   const [goal, setGoal] = useState("weight_loss");
   const displayGoal: string = aiResult?.goal || goal || "your";
   const [activityLevel, setActivityLevel] = useState("sedentary");
+  const [loadingText, setLoadingText] = useState("Analyzing your fitness profile...");
+
+  useEffect(() => {
+    if (loadingAI) {
+      const texts = [
+        "Analyzing your fitness profile...",
+        "Evaluating goals and activity levels...",
+        "Generating personalized exercises...",
+        "Finalizing your AI-powered schedule...",
+      ];
+      let i = 0;
+      const interval = setInterval(() => {
+        i = (i + 1) % texts.length;
+        setLoadingText(texts[i]);
+      }, 1500);
+      return () => clearInterval(interval);
+    }
+  }, [loadingAI]);
 
 
   const navigate = useNavigate();
@@ -248,6 +266,62 @@ const Home = () => {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      {/* AI Loading Overlay */}
+      {loadingAI && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background/95 backdrop-blur-xl"
+        >
+          <div className="relative flex flex-col items-center">
+            {/* Outer Spinning Ring */}
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+              className="w-32 h-32 rounded-full border-t-4 border-b-4 border-primary shadow-[0_0_30px_rgba(var(--primary),0.6)]"
+            />
+            {/* Inner Pulsing Brain */}
+            <motion.div
+              className="absolute inset-0 flex items-center justify-center"
+              animate={{ scale: [1, 1.1, 1] }}
+              transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+            >
+              <Brain className="w-12 h-12 text-primary" />
+            </motion.div>
+          </div>
+          
+          <motion.h3 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-10 text-3xl font-bold text-foreground text-center px-4"
+          >
+            AI Coach is working
+          </motion.h3>
+          
+          <div className="mt-4 h-8 flex items-center justify-center">
+            <motion.p
+              key={loadingText}
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              className="text-lg text-primary font-medium text-center px-4"
+            >
+              {loadingText}
+            </motion.p>
+          </div>
+          
+          {/* Progress Bar Illusion */}
+          <div className="w-64 h-2 mt-8 bg-muted rounded-full overflow-hidden">
+            <motion.div 
+              className="h-full bg-primary"
+              initial={{ width: "0%" }}
+              animate={{ width: "100%" }}
+              transition={{ duration: 4, ease: "easeInOut" }}
+            />
+          </div>
+        </motion.div>
+      )}
 
       {/* {!isLoggedIn && (
         <div className="fixed inset-0 bg-black/60 z-[999] flex items-center justify-center">

@@ -45,23 +45,25 @@ const Login = () => {
 
         localStorage.setItem("isLoggedIn", "true");
 
-        const userData = {
-          id: data.user.id,
-          name: data.user.name,
-          age: data.user.age,
-          weight: data.user.weight,
-          height: data.user.height,
-          email: data.user.email,
-          fitnessGoal: loginData.fitness_goal || loginData.goal || "weight_loss",
-          activityLevel: data.user.activityLevel || data.user.activity_level,
-          role: data.user.role
-        };
+          const userData = {
+    id: data.user.id,
+    name: data.user.name,
+    age: data.user.age,
+    weight: data.user.weight,
+    height: data.user.height,
+    email: data.user.email,
+    fitnessGoal: loginData.fitness_goal || loginData.goal || "weight_loss",
+    activityLevel: data.user.activityLevel || data.user.activity_level,
+    role: data.user.role,
+    is_main_admin: data.user.is_main_admin
+  };
 
         localStorage.setItem("userData", JSON.stringify(userData));
         window.dispatchEvent(new Event("storageUpdated"));
         console.log("Login: userData saved ->", userData);
         console.log("Check localStorage ->", localStorage.getItem("userData"));
         console.log("LOGIN USER DATA:", userData);
+        console.log(JSON.parse(localStorage.getItem("userData")));
 
         if (data.user.role === "admin") {
           navigate("/admin");
@@ -112,7 +114,7 @@ const Login = () => {
 
           {(!user || user.role !== "admin") && (
             <Link
-              to="/dashboard"
+              to="/"
               className="text-sm text-primary hover:underline flex items-center gap-1"
             >
               ← Back to Home

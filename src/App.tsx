@@ -13,7 +13,6 @@ import Login from "./pages/Login";
 import AdaptiveProgress from "@/components/AdaptiveProgress";
 import GoalPlan from "./pages/Goalplan";
 import Signup from "./pages/Signup";
-import UserDashboard from "./pages/UserDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 import Analytics from "./pages/Analytics";
@@ -42,16 +41,7 @@ const App = () => (
           <Route path="/adaptive-progress" element={<AdaptiveProgress />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/health-tracker" element={<HealthTracker />} />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute role="user">
-                <UserDashboard />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
+          <Route  path="/dashboard"/><Route
             path="/admin"
             element={
               <ProtectedRoute role="admin">

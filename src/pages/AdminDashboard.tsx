@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Calendar, ArrowLeft, Flame, Timer, Target, Award, ChevronRight } from "lucide-react";
+import { Calendar, ArrowLeft, Flame, Timer, Target, Award, ChevronRight, Bell } from "lucide-react";
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -11,8 +11,27 @@ import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-    Users, MessageSquare, BarChart3, TrendingUp, Lock, LogOut,
-    Trash2, Activity, Dumbbell, Heart, Zap, Search, ArrowUpDown,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+    Users,
+    MessageSquare,
+    BarChart3,
+    TrendingUp,
+    LogOut,
+    Activity,
+    Dumbbell,
+    Heart,
+    Zap,
+    Search,
+    ArrowUpDown,
+    MoreVertical,
+    Trash2,
+    Lock,
+    Unlock,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -27,6 +46,9 @@ type User = {
     activityLevel: string;
     role: string;
     signupDate: string;
+    is_main_admin?: boolean;
+    is_blocked?: boolean;
+
 };
 
 type Feedback = {
@@ -55,6 +77,60 @@ const Admin = () => {
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
     const navigate = useNavigate();
     const currentAdminId = JSON.parse(localStorage.getItem("userData") || "{}").id;
+    const admin = JSON.parse(localStorage.getItem("userData") || "{}");
+    const blockUser = async (id: number) => {
+        const admin = JSON.parse(localStorage.getItem("userData") || "{}");
+
+        const res = await fetch(`${API_BASE}/block-user/${id}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                email: admin.email,
+            },
+        });
+
+        const data = await res.json();
+
+        if (data.status === "success") {
+            toast.success("User Blocked 🚫");
+            setUsers(prev =>
+                prev.map(u => u.id === id ? { ...u, is_blocked: true } : u)
+            );
+        }
+    };
+
+    const unblockUser = async (id: number) => {
+        const admin = JSON.parse(localStorage.getItem("userData") || "{}");
+
+        const res = await fetch(`${API_BASE}/unblock-user/${id}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                email: admin.email,
+            },
+        });
+
+        const data = await res.json();
+
+        if (data.status === "success") {
+            toast.success("User Unblocked ✅");
+            setUsers(prev =>
+                prev.map(u => u.id === id ? { ...u, is_blocked: false } : u)
+            );
+        }
+    };
+    const notifications = [
+        ...users.slice(0, 3).map(u => ({
+            text: `${u.name} joined`,
+            time: u.signupDate
+                ? new Date(u.signupDate).toLocaleDateString()
+                : "recent"
+        })),
+        ...feedbacks.slice(0, 3).map(f => ({
+            text: `${f.name} gave feedback`,
+            time: "recent"
+        }))
+    ];
 
     // Check admin on mount
     useEffect(() => {
@@ -78,6 +154,8 @@ const Admin = () => {
                     activityLevel: u.activity_level,
                     role: u.role?.toLowerCase() || "user",
                     signupDate: u.signup_date,
+                    is_main_admin: u.is_main_admin || false,
+                    is_blocked: u.is_blocked || false,
                 }));
                 setUsers(formatted);
             })
@@ -267,54 +345,67 @@ const Admin = () => {
 
     return (
         <div className="min-h-screen bg-background text-foreground">
-            <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
-                <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
-                    <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                            <BarChart3 className="h-5 w-5 text-primary" />
-                        </div>
-                        <h1>
-                            Admin Dashboard
-                        </h1>
+            <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur">
+                <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-3">
 
+                    <div className="flex items-center gap-2">
+                        <BarChart3 className="h-5 w-5 text-primary" />
+                        <h1 className="text-lg font-semibold">Admin Dashboard</h1>
                     </div>
-                    <div className="flex-1"></div>
 
-                    {JSON.parse(localStorage.getItem("userData"))?.name !== "Admin" && (
-                        <div className="hidden md:flex items-center ml-auto">
-                            <Button variant="ghost" asChild>
-                                <Link to="/" className="flex items-center gap-1">
-                                    <ArrowLeft className="w-4 h-4" />
-                                    Back to Home
+                    <div className="flex items-center gap-2">
+                        {/* ❌ Main Admin ko Back button nahi dikhega */}
+                        {!JSON.parse(localStorage.getItem("userData") || "{}")?.is_main_admin && (
+                            <Button variant="ghost" size="sm" asChild>
+                                <Link to="/">
+                                    <ArrowLeft className="w-4 h-4 mr-1" />
+                                    Back
                                 </Link>
                             </Button>
-                        </div>
-                    )}
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                            // 1️⃣ Clear localStorage
-                            localStorage.removeItem("userData");
-                            localStorage.removeItem("isLoggedIn");
+                        )}
 
-                            window.location.reload();
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                                localStorage.clear();
+                                window.location.reload();
+                            }}
+                        >
+                            <LogOut className="w-4 h-4 mr-1" />
+                            Logout
+                        </Button>
 
-                            // 2️⃣ Clear component state
-                            setAuthenticated(false);
-                            setUsers([]);
-                            setFeedbacks([]);
+                        {/* 🔔 Notification Bell (LAST me add karo) */}
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="relative ml-6">
+                                    <Bell className="h-5 w-5" />
 
-                            // 3️⃣ Trigger event if other components listen
-                            window.dispatchEvent(new Event("storageUpdated"));
+                                    {/* 🔴 Badge */}
+                                    {notifications.length > 0 && (
+                                        <span className="absolute -top-1 -right-1 text-[10px] bg-red-500 text-white rounded-full px-1">
+                                            {notifications.length}
+                                        </span>
+                                    )}
+                                </Button>
+                            </DropdownMenuTrigger>
 
-                            // 4️⃣ Navigate to home
-                            navigate("/");
-                        }}
-                        className="text-muted-foreground hover:text-foreground"
-                    >
-                        <LogOut className="mr-2 h-4 w-4" /> Logout
-                    </Button>
+                            <DropdownMenuContent align="end" className="w-64">
+                                {notifications.length === 0 ? (
+                                    <p className="text-sm text-center p-3">No notifications</p>
+                                ) : (
+                                    notifications.map((n, i) => (
+                                        <DropdownMenuItem key={i} className="flex flex-col items-start">
+                                            <span className="text-sm">{n.text}</span>
+                                            <span className="text-xs text-muted-foreground">{n.time}</span>
+                                        </DropdownMenuItem>
+                                    ))
+                                )}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+
                 </div>
             </header>
 
@@ -532,7 +623,26 @@ const Admin = () => {
                                                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-xs font-bold">
                                                             {user.name.charAt(0)}
                                                         </div>
-                                                        <span className="font-medium">{user.name}</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-medium">{user.name}</span>
+
+                                                            {user.is_main_admin && (
+                                                                <span className="text-xs px-2 py-0.5 rounded bg-yellow-400/20 text-yellow-600 font-medium">
+                                                                    👑 Main
+                                                                </span>
+                                                            )}
+
+                                                            {!user.is_main_admin && user.role === "admin" && (
+                                                                <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-600 font-medium">
+                                                                    Admin
+                                                                </span>
+                                                            )}
+                                                            {user.is_blocked && (
+                                                                <span className="text-xs px-2 py-0.5 rounded bg-red-500/20 text-red-600 font-medium">
+                                                                    🚫 Blocked
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-muted-foreground">{user.email}</TableCell>
@@ -546,37 +656,72 @@ const Admin = () => {
                                                     {user.signupDate ? new Date(user.signupDate).toLocaleDateString() : "—"}
                                                 </TableCell>
 
-                                                {/* Action Buttons */}
-                                                <TableCell className="text-right flex gap-1 justify-end">
-                                                    {user.role === "user" && (
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={() => promoteUser(user.id)}
-                                                        >
-                                                            Promote
-                                                        </Button>
-                                                    )}
+                                                <TableCell className="text-right">
+                                                    <div className="flex justify-end">
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button size="icon" variant="ghost" className="h-8 w-8">
+                                                                    <MoreVertical className="h-4 w-4" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
 
-                                                    {user.role === "admin" && user.id !== currentAdminId && (
-                                                        <Button
-                                                            variant="destructive"
-                                                            size="sm"
-                                                            onClick={() => demoteUser(user.id)}
-                                                        >
-                                                            Demote
-                                                        </Button>
-                                                    )}
+                                                            <DropdownMenuContent align="end" className="w-44">
 
-                                                    {/* Delete button is always visible */}
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => handleDeleteUser(user.id)}
-                                                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
+                                                                {/* 🔼 PROMOTE (ONLY MAIN ADMIN) */}
+                                                                {user.role === "user" && admin?.is_main_admin && (
+                                                                    <DropdownMenuItem onClick={() => promoteUser(user.id)}>
+                                                                        ⬆️ Promote
+                                                                    </DropdownMenuItem>
+                                                                )}
+
+                                                                {/* 🔽 DEMOTE (ONLY MAIN ADMIN, NOT SELF) */}
+                                                                {user.role === "admin" &&
+                                                                    user.id !== currentAdminId &&
+                                                                    admin?.is_main_admin && (
+                                                                        <DropdownMenuItem onClick={() => demoteUser(user.id)}>
+                                                                            ⬇️ Demote
+                                                                        </DropdownMenuItem>
+                                                                    )}
+
+                                                                {/* 🔒 BLOCK / UNBLOCK */}
+                                                                {(
+                                                                    (admin?.is_main_admin && user.id !== currentAdminId) ||
+                                                                    (!admin?.is_main_admin &&
+                                                                        user.role === "user" &&
+                                                                        user.id !== currentAdminId)
+                                                                ) && (
+                                                                        !user.is_blocked ? (
+                                                                            <DropdownMenuItem onClick={() => blockUser(user.id)}>
+                                                                                <Lock className="h-4 w-4 mr-2 text-yellow-500" />
+                                                                                Block
+                                                                            </DropdownMenuItem>
+                                                                        ) : (
+                                                                            <DropdownMenuItem onClick={() => unblockUser(user.id)}>
+                                                                                <Unlock className="h-4 w-4 mr-2 text-green-500" />
+                                                                                Unblock
+                                                                            </DropdownMenuItem>
+                                                                        )
+                                                                    )}
+
+                                                                {/* Delete (same old style ✅) */}
+                                                                {user.id !== currentAdminId &&
+                                                                    !user.is_main_admin &&
+                                                                    (admin?.is_main_admin || user.role !== "admin") && (
+                                                                        <Button
+                                                                            size="sm"
+                                                                            variant="ghost"
+                                                                            onClick={() => handleDeleteUser(user.id)}
+                                                                            className="h-8 px-3 flex items-center gap-1
+                                                                                        text-red-500 
+                                                                                        hover:bg-red-500"
+                                                                        >
+                                                                            <Trash2 className="h-4 w-4" />
+                                                                            Delete
+                                                                        </Button>
+                                                                    )}
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </div>
                                                 </TableCell>
                                             </TableRow>
                                         ))}

@@ -306,6 +306,12 @@ def login():
         print("USER:", user)
 
         if user:
+            if user.get("is_blocked"):
+                return jsonify({
+                    "status": "error",
+                    "message": "Your account is blocked ❌"
+                }), 403
+            
             if user["role"] == "admin" and password == user["password"]:
                 login_success = True
     # ✅ Normal user: hashed password
@@ -326,6 +332,7 @@ def login():
                 "fitness_goal": user["fitness_goal"],
                 "activity_level": user["activity_level"],
                 "role": user["role"],
+                "is_main_admin": bool(user.get("is_main_admin", False)),
                 "signup_date": user["signup_date"].strftime("%Y-%m-%d %H:%M:%S")
                 if user.get("signup_date") else None
             }
@@ -353,7 +360,9 @@ def get_users():
         db = get_db()  # ✅ ADD THIS
         with db.cursor(dictionary=True) as cursor:
             cursor.execute("""
-        SELECT id, name, email, age, weight, height, fitness_goal, activity_level, signup_date, role
+            SELECT id, name, email, age, weight, height,
+        fitness_goal, activity_level, signup_date,
+        role, is_main_admin, is_blocked
         FROM users
         ORDER BY signup_date DESC
     """)
@@ -372,7 +381,7 @@ def get_users():
 @app.route("/delete-user/<int:user_id>", methods=["DELETE"])
 def delete_user(user_id):
     try:
-        email = request.headers.get("email")  # 👈 user identify
+        email = request.headers.get("email")
 
         if not email:
             return jsonify({"status": "error", "message": "No user provided"}), 401
@@ -380,7 +389,7 @@ def delete_user(user_id):
         db = get_db()
         cursor = db.cursor(dictionary=True)
 
-        # ✅ Check role from DB
+        # ✅ Check requester is admin
         cursor.execute("SELECT role FROM users WHERE email=%s", (email,))
         user = cursor.fetchone()
 
@@ -388,6 +397,31 @@ def delete_user(user_id):
             cursor.close()
             db.close()
             return jsonify({"status": "error", "message": "Unauthorized ❌"}), 403
+
+        # ✅ Get target user
+        cursor.execute("SELECT role, is_main_admin FROM users WHERE id=%s", (user_id,))
+        target_user = cursor.fetchone()
+
+        # ❌ Prevent deleting main admin
+        if target_user and target_user.get("is_main_admin"):
+            cursor.close()
+            db.close()
+            return jsonify({
+                "status": "error",
+                "message": "Main Admin cannot be deleted ❌"
+            }), 403
+
+        # ❌ Optional: Prevent self delete
+        cursor.execute("SELECT id FROM users WHERE email=%s", (email,))
+        current_user = cursor.fetchone()
+
+        if current_user and current_user["id"] == user_id:
+            cursor.close()
+            db.close()
+            return jsonify({
+                "status": "error",
+                "message": "You cannot delete yourself ❌"
+            }), 403
 
         # ✅ Delete user
         cursor.execute("DELETE FROM users WHERE id=%s", (user_id,))
@@ -682,12 +716,16 @@ def promote_user(user_id):
         db = get_db()
         cursor = db.cursor(dictionary=True)
 
-        cursor.execute("SELECT role FROM users WHERE email=%s", (email,))
+        cursor.execute("SELECT role, is_main_admin FROM users WHERE email=%s", (email,))
         user = cursor.fetchone()
-        if not user or user["role"] != "admin":
+
+        if not user or user["role"] != "admin" or not user["is_main_admin"]:
             cursor.close()
             db.close()
-            return jsonify({"status": "error", "message": "अनधिकृत ❌"}), 403
+            return jsonify({
+                "status": "error",
+                "message": "Only Main Admin can promote ❌"
+            }), 403
 
         # 2️⃣ टार्गेट यूज़र को एडमिन बनाना
         cursor.execute("UPDATE users SET role='admin' WHERE id=%s", (user_id,))
@@ -724,12 +762,17 @@ def demote_user(user_id):
         cursor = db.cursor(dictionary=True)
 
         # ✅ Check if the requester is admin
-        cursor.execute("SELECT role FROM users WHERE email=%s", (admin_email,))
+        cursor.execute("SELECT role, is_main_admin FROM users WHERE email=%s", (admin_email,))
         admin_user = cursor.fetchone()
-        if not admin_user or admin_user["role"] != "admin":
+
+        # ❌ Sirf main admin hi demote kare
+        if not admin_user or admin_user["role"] != "admin" or not admin_user["is_main_admin"]:
             cursor.close()
             db.close()
-            return jsonify({"status": "error", "message": "Unauthorized ❌"}), 403
+            return jsonify({
+                "status": "error",
+                "message": "Only Main Admin can demote ❌"
+            }), 403
 
         # ✅ Get the target user
         cursor.execute("SELECT id, email, role, name FROM users WHERE id=%s", (user_id,))
@@ -756,6 +799,85 @@ def demote_user(user_id):
             "status": "success",
             "message": f"{target_user['name']} has been demoted to user ✅"
         })
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+    #-------------------Block user-------------------------------------------
+@app.route("/block-user/<int:user_id>", methods=["POST"])
+def block_user(user_id):
+    try:
+        email = request.headers.get("email")
+
+        if not email:
+            return jsonify({"status": "error", "message": "Missing email"}), 400
+
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+
+        cursor.execute("SELECT role FROM users WHERE email=%s", (email,))
+        admin = cursor.fetchone()
+
+        if not admin or admin["role"] != "admin":
+            cursor.close()
+            db.close()
+            return jsonify({"status": "error", "message": "Unauthorized"}), 403
+
+        cursor.execute("SELECT role, is_main_admin FROM users WHERE id=%s", (user_id,))
+        target = cursor.fetchone()
+
+        cursor.execute("SELECT id, is_main_admin FROM users WHERE email=%s", (email,))
+        current = cursor.fetchone()
+
+        if current["id"] == user_id:
+            return jsonify({"status": "error", "message": "You cannot block yourself ❌"}), 403
+
+        if not current["is_main_admin"] and target["role"] == "admin":
+            return jsonify({
+                "status": "error",
+                "message": "Only Main Admin can block admins ❌"
+            }), 403
+
+        # ✅ Block user
+        cursor.execute("UPDATE users SET is_blocked=1 WHERE id=%s", (user_id,))
+        db.commit()
+
+        cursor.close()
+        db.close()
+
+        return jsonify({"status": "success", "message": "User blocked 🚫"})
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+#-----------------------Unblock user---------------------------------
+@app.route("/unblock-user/<int:user_id>", methods=["POST"])
+def unblock_user(user_id):
+    try:
+        email = request.headers.get("email")
+
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+
+        # ✅ Check admin
+        cursor.execute("SELECT role FROM users WHERE email=%s", (email,))
+        admin = cursor.fetchone()
+
+        if not admin or admin["role"] != "admin":
+            cursor.close()
+            db.close()
+            return jsonify({"status": "error", "message": "Unauthorized"}), 403
+
+        # ✅ Unblock
+        cursor.execute("UPDATE users SET is_blocked=0 WHERE id=%s", (user_id,))
+        db.commit()
+
+        cursor.close()
+        db.close()
+
+        return jsonify({"status": "success", "message": "User unblocked ✅"})
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500

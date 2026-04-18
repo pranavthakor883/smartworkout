@@ -114,7 +114,7 @@ const Signup = () => {
 
         console.log("Saved userData:", userData);
         console.log("Check localStorage:", localStorage.getItem("userData"));
-        console.log("NAVIGATING TO:", userData.role === "admin" ? "/admin" : "/dashboard");
+        console.log("NAVIGATING TO:", userData.role === "admin" ? "/admin" : "/");
         localStorage.setItem("isLoggedIn", "true");
 
         navigate("/");
