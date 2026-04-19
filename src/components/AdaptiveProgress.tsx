@@ -10,6 +10,10 @@ interface Exercise {
   sets: number;
   reps: number;
   completed?: boolean;
+  actual: {
+    setsDone: number;
+    repsDone: number;
+  };
 }
 
 interface DaySchedule {
@@ -65,8 +69,14 @@ const AdaptiveProgressPage = () => {
 
   const handleToggleComplete = (dayIdx: number, exIdx: number) => {
     if (!aiResult) return;
-    const updatedSchedule = [...aiResult.schedule];
-    updatedSchedule[dayIdx].exercises[exIdx].completed = !updatedSchedule[dayIdx].exercises[exIdx].completed;
+    const updatedSchedule = aiResult.schedule.map((day, dIdx) => ({
+      ...day,
+      exercises: day.exercises.map((ex, eIdx) =>
+        dIdx === dayIdx && eIdx === exIdx
+          ? { ...ex, completed: !ex.completed }
+          : ex
+      )
+    }));
 
     const newAiResult = { ...aiResult, schedule: updatedSchedule };
     setAiResult(newAiResult);

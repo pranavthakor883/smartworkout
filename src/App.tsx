@@ -20,6 +20,8 @@ import Feedback from "./pages/Feedback"
 import HealthTracker from "./pages/HealthTracker";
 import AIPlan from "./pages/Aiplan";
 import ProtectedRoute from "./components/ProtectedRoute";
+import SmartSchedulingPage from "./components/SmartScheduling";
+
 
 const queryClient = new QueryClient();
 

@@ -79,3 +79,17 @@
     @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-emerald-300;
   }
 }
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .bg-card, .bg-background {
+    background: white !important;
+    border-color: #eee !important;
+  }
+}
